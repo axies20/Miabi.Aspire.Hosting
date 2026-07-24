@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Preview Aspire hosting integration for publishing and deploying applications to an existing Miabi instance.</Description>
+    <PackageId>Miabi.Aspire.Hosting</PackageId>
+    <Version>0.1.0-preview.1</Version>
+    <Authors>Miabi Aspire contributors</Authors>
+    <PackageTags>aspire;hosting;miabi;deployment;paas</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IsPackable>true</IsPackable>
+    <EnableAspireIntegrationAnalyzers>true</EnableAspireIntegrationAnalyzers>
+    <NoWarn>$(NoWarn);ASPIREPIPELINES001;ASPIREPIPELINES003;ASPIREPIPELINES004;CS0618</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Miabi.Aspire.Hosting.Tests" />
+  </ItemGroup>
+</Project>

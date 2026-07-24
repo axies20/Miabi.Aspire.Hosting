@@ -1,0 +1,10 @@
+bin/
+obj/
+.idea/
+.vs/
+artifacts/
+aspire-output/
+TestResults/
+*.user
+infra/miabi-local/.env
+tools/

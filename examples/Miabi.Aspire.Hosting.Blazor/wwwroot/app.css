@@ -1,0 +1,68 @@
+:root {
+    color-scheme: dark;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    background: #07111f;
+    color: #e7edf7;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle at 20% 20%, #153b68 0, transparent 35%),
+        radial-gradient(circle at 80% 80%, #28425a 0, transparent 32%),
+        #07111f;
+}
+
+.card {
+    width: min(680px, calc(100vw - 4rem));
+    padding: 3rem;
+    border: 1px solid #315271;
+    border-radius: 24px;
+    background: rgb(10 25 42 / 85%);
+    box-shadow: 0 24px 80px rgb(0 0 0 / 45%);
+}
+
+.eyebrow {
+    color: #63d9b6;
+    font-size: .8rem;
+    font-weight: 800;
+    letter-spacing: .18em;
+}
+
+h1 {
+    margin: .4rem 0 1rem;
+    font-size: clamp(2.2rem, 7vw, 4.5rem);
+    line-height: .96;
+}
+
+p {
+    color: #b5c5d8;
+    font-size: 1.15rem;
+    line-height: 1.65;
+}
+
+dl {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 2rem 0 0;
+}
+
+dl div {
+    padding: 1rem;
+    border-radius: 14px;
+    background: #0b1b2d;
+}
+
+dt {
+    color: #7891aa;
+    font-size: .75rem;
+    text-transform: uppercase;
+}
+
+dd {
+    margin: .35rem 0 0;
+}

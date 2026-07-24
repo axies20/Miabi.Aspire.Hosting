@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Miabi.Aspire.Hosting/Miabi.Aspire.Hosting.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Miabi.Aspire.Hosting.Tests/Miabi.Aspire.Hosting.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Miabi.Aspire.Hosting.AppHost/Miabi.Aspire.Hosting.AppHost.csproj" />
+    <Project Path="examples/Miabi.Aspire.Hosting.Blazor/Miabi.Aspire.Hosting.Blazor.csproj" />
+  </Folder>
+</Solution>

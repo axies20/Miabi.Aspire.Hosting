@@ -1,0 +1,21 @@
+@page "/"
+
+<PageTitle>Blazor on Miabi</PageTitle>
+
+<main class="card">
+    <p class="eyebrow">ASPIRE → MIABI</p>
+    <h1>Blazor успешно развёрнут</h1>
+    <p>
+        Этот контейнер собран Aspire из Dockerfile и запущен локальным Miabi.
+    </p>
+    <dl>
+        <div>
+            <dt>Environment</dt>
+            <dd>@Environment.GetEnvironmentVariable("APP_ENV")</dd>
+        </div>
+        <div>
+            <dt>Runtime</dt>
+            <dd>@System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription</dd>
+        </div>
+    </dl>
+</main>

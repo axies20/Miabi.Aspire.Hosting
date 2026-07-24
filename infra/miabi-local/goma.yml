@@ -1,0 +1,14 @@
+version: 2
+gateway:
+  entryPoints:
+    web:
+      address: "[::]:80"
+  networking:
+    dnsCache:
+      ttl: 30
+      clearOnReload: true
+  providers:
+    file:
+      enabled: true
+      directory: /etc/goma/providers
+      watch: true
