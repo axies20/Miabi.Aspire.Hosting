@@ -29,8 +29,7 @@ internal sealed class MiabiManifestGenerator
                      .Where(static resource => resource is IComputeResource)
                      .OrderBy(static resource => resource.Name, StringComparer.Ordinal))
         {
-            var image = await GetImageAsync(
-                resource, executionContext, services, logger, cancellationToken);
+            var image = await GetImageAsync(resource, executionContext, services, logger, cancellationToken);
             if (image is null)
             {
                 throw new InvalidOperationException(
@@ -39,14 +38,17 @@ internal sealed class MiabiManifestGenerator
             }
 
             var (repository, tag) = SplitImage(image);
-            var spec = new MiabiApplicationSpec { Image = repository, Tag = tag };
+            var spec = new MiabiApplicationSpec
+            {
+                Image = repository,
+                Tag = tag
+            };
 
             var endpoints = resource.Annotations.OfType<EndpointAnnotation>().ToArray();
             foreach (var endpoint in endpoints
                          .Where(endpoint =>
                              resource is not ProjectResource ||
-                             endpoint.UriScheme != "https" ||
-                             !endpoints.Any(candidate => candidate.UriScheme == "http"))
+                             endpoint.UriScheme != "https" || endpoints.All(candidate => candidate.UriScheme != "http"))
                          .OrderBy(static endpoint => endpoint.Name, StringComparer.Ordinal))
             {
                 var targetPort = GetTargetPort(resource, endpoint);
@@ -57,7 +59,11 @@ internal sealed class MiabiManifestGenerator
                     Protocol = endpoint.Protocol == ProtocolType.Udp ? "udp" : "tcp",
                     Scheme = endpoint.UriScheme,
                     ExternalAccess = endpoint.IsExternal,
-                    Publish = endpoint.Port.HasValue && !endpoint.IsProxied,
+                    Publish = endpoint is
+                    {
+                        Port: not null,
+                        IsProxied: false
+                    },
                     HostPort = endpoint.Port ?? 0
                 });
             }
@@ -120,9 +126,8 @@ internal sealed class MiabiManifestGenerator
 
             foreach (var domain in resource.Annotations.OfType<MiabiDomainAnnotation>())
             {
-                var endpoint = resource.Annotations.OfType<EndpointAnnotation>()
-                                   .LastOrDefault(x =>
-                                       string.Equals(x.Name, domain.EndpointName, StringComparison.Ordinal))
+                var endpoint = resource.Annotations.OfType<EndpointAnnotation>().LastOrDefault(x =>
+                                   string.Equals(x.Name, domain.EndpointName, StringComparison.Ordinal))
                                ?? throw new InvalidOperationException(
                                    $"Miabi domain '{domain.Host}' references missing endpoint " +
                                    $"'{resource.Name}/{domain.EndpointName}'.");
