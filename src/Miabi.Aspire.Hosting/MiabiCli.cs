@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 using Microsoft.Extensions.Logging;
 
 namespace Miabi.Aspire.Hosting;
@@ -24,10 +23,13 @@ internal sealed class MiabiCli(ILogger logger)
             RedirectStandardError = true,
             RedirectStandardInput = standardInput is not null,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            Environment =
+            {
+                ["MIABI_SERVER"] = environment.Server,
+                ["MIABI_TOKEN"] = token
+            }
         };
-        startInfo.Environment["MIABI_SERVER"] = environment.Server;
-        startInfo.Environment["MIABI_TOKEN"] = token;
         startInfo.ArgumentList.Add("--workspace");
         startInfo.ArgumentList.Add(environment.Workspace);
         foreach (var argument in arguments)
@@ -35,7 +37,8 @@ internal sealed class MiabiCli(ILogger logger)
             startInfo.ArgumentList.Add(argument);
         }
 
-        using var process = new Process { StartInfo = startInfo };
+        using var process = new Process();
+        process.StartInfo = startInfo;
         try
         {
             if (!process.Start())

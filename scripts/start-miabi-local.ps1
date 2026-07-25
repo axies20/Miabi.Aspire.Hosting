@@ -27,6 +27,7 @@ if (-not (Test-Path -LiteralPath $envFile)) {
 
     @(
         'MIABI_IMAGE=miabi/miabi:1.6.5'
+        'MIABI_EXTERNAL_BASE_DOMAIN=apps.localhost'
         'MIABI_ADMIN_EMAIL=admin@example.com'
         'MIABI_ADMIN_PASSWORD=MiabiLocal2026!'
         "MIABI_DB_PASSWORD=$(New-HexSecret)"

@@ -1,4 +1,3 @@
-using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Pipelines;
 using Miabi.Aspire.Hosting;
@@ -50,9 +49,9 @@ public static class MiabiHostingExtensions
 
         var resourceBuilder = builder.AddResource(resource);
         resourceBuilder.WithAnnotation(new MiabiDeploymentOptionsAnnotation(false, TimeSpan.FromMinutes(10)));
-        resourceBuilder.WithAnnotation(new PipelineStepAnnotation(
-            context => MiabiPipelineSteps.Create(context.Resource as MiabiEnvironmentResource
-                ?? throw new InvalidOperationException("Expected a Miabi environment resource."))));
+        resourceBuilder.WithAnnotation(new PipelineStepAnnotation(context => MiabiPipelineSteps.Create(
+            context.Resource as MiabiEnvironmentResource
+            ?? throw new InvalidOperationException("Expected a Miabi environment resource."))));
         return resourceBuilder;
     }
 
@@ -65,7 +64,7 @@ public static class MiabiHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         var current = builder.Resource.Annotations
             .OfType<MiabiDeploymentOptionsAnnotation>()
-            .LastOrDefault() ?? new(false, TimeSpan.FromMinutes(10));
+            .LastOrDefault() ?? new MiabiDeploymentOptionsAnnotation(false, TimeSpan.FromMinutes(10));
         return builder.WithAnnotation(current with { Prune = enabled },
             ResourceAnnotationMutationBehavior.Replace);
     }
@@ -84,7 +83,7 @@ public static class MiabiHostingExtensions
 
         var current = builder.Resource.Annotations
             .OfType<MiabiDeploymentOptionsAnnotation>()
-            .LastOrDefault() ?? new(false, TimeSpan.FromMinutes(10));
+            .LastOrDefault() ?? new MiabiDeploymentOptionsAnnotation(false, TimeSpan.FromMinutes(10));
         return builder.WithAnnotation(current with { Timeout = timeout },
             ResourceAnnotationMutationBehavior.Replace);
     }

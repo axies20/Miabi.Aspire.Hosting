@@ -1,5 +1,3 @@
-using Aspire.Hosting;
-using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -119,7 +117,7 @@ internal static class MiabiPipelineSteps
 
     private static MiabiDeploymentOptionsAnnotation GetOptions(MiabiEnvironmentResource environment) =>
         environment.Annotations.OfType<MiabiDeploymentOptionsAnnotation>().LastOrDefault()
-        ?? new(false, TimeSpan.FromMinutes(10));
+        ?? new MiabiDeploymentOptionsAnnotation(false, TimeSpan.FromMinutes(10));
 
     private static async Task<string> GetTokenAsync(
         MiabiEnvironmentResource environment,

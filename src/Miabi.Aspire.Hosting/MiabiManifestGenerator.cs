@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -11,7 +10,7 @@ namespace Miabi.Aspire.Hosting;
 
 internal sealed class MiabiManifestGenerator
 {
-    private readonly ISerializer serializer = new SerializerBuilder()
+    private readonly ISerializer _serializer = new SerializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull |
                                         DefaultValuesHandling.OmitEmptyCollections)
@@ -57,9 +56,15 @@ internal sealed class MiabiManifestGenerator
                     Container = targetPort,
                     Protocol = endpoint.Protocol == ProtocolType.Udp ? "udp" : "tcp",
                     Scheme = endpoint.UriScheme,
+                    ExternalAccess = endpoint.IsExternal,
                     Publish = endpoint.Port.HasValue && !endpoint.IsProxied,
                     HostPort = endpoint.Port ?? 0
                 });
+            }
+
+            if (spec.Ports.Any(static port => port.ExternalAccess))
+            {
+                spec.ExternalLabel = NormalizeName(resource.Name);
             }
 
             if (resource is IResourceWithEnvironment environmentResource)
@@ -116,10 +121,11 @@ internal sealed class MiabiManifestGenerator
             foreach (var domain in resource.Annotations.OfType<MiabiDomainAnnotation>())
             {
                 var endpoint = resource.Annotations.OfType<EndpointAnnotation>()
-                    .LastOrDefault(x => string.Equals(x.Name, domain.EndpointName, StringComparison.Ordinal))
-                    ?? throw new InvalidOperationException(
-                        $"Miabi domain '{domain.Host}' references missing endpoint " +
-                        $"'{resource.Name}/{domain.EndpointName}'.");
+                                   .LastOrDefault(x =>
+                                       string.Equals(x.Name, domain.EndpointName, StringComparison.Ordinal))
+                               ?? throw new InvalidOperationException(
+                                   $"Miabi domain '{domain.Host}' references missing endpoint " +
+                                   $"'{resource.Name}/{domain.EndpointName}'.");
                 var targetPort = GetTargetPort(resource, endpoint);
                 if (!manifests.Any(x => x.Kind == "Domain" && x.Metadata.Name == domain.Host))
                 {
@@ -145,7 +151,7 @@ internal sealed class MiabiManifestGenerator
             throw new InvalidOperationException("The Aspire model contains no Miabi-compatible compute resources.");
         }
 
-        return string.Join("---\n", manifests.Select(serializer.Serialize));
+        return string.Join("---\n", manifests.Select(_serializer.Serialize));
     }
 
     private static MiabiManifest Create(string kind, string name, object spec) => new()
@@ -256,9 +262,9 @@ internal sealed class MiabiManifestGenerator
                         endpointName,
                         StringComparison.Ordinal));
                 return endpoint is null
-                    ? match.Value
-                    : GetTargetPort(resource, endpoint).ToString(
-                           System.Globalization.CultureInfo.InvariantCulture)
+                        ? match.Value
+                        : GetTargetPort(resource, endpoint).ToString(
+                            System.Globalization.CultureInfo.InvariantCulture)
                     ;
             });
 
@@ -275,7 +281,7 @@ internal sealed class MiabiManifestGenerator
 
     private static int GetTargetPort(IResource resource, EndpointAnnotation endpoint)
     {
-        if (endpoint.TargetPort is int targetPort)
+        if (endpoint.TargetPort is { } targetPort)
         {
             return targetPort;
         }
@@ -293,7 +299,7 @@ internal sealed class MiabiManifestGenerator
             $"Endpoint '{resource.Name}/{endpoint.Name}' needs a target port for Miabi.");
     }
 
-    internal static string NormalizeName(string value)
+    private static string NormalizeName(string value)
     {
         var normalized = new string(value.ToLowerInvariant()
             .Select(static character =>

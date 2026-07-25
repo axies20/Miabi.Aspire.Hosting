@@ -70,6 +70,7 @@ services:
       MIABI_ADMIN_PASSWORD: ${MIABI_ADMIN_PASSWORD}
       MIABI_API_URL: http://localhost:9000
       MIABI_WEB_URL: http://localhost:9000
+      MIABI_EXTERNAL_BASE_DOMAIN: ${MIABI_EXTERNAL_BASE_DOMAIN:-apps.localhost}
       MIABI_PROXY_NETWORK: miabi
       MIABI_GOMA_PROVIDER_DIR: /etc/goma/providers
       MIABI_OPENAPI_DOCS: "true"

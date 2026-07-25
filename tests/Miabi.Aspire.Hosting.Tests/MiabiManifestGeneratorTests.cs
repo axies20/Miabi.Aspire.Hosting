@@ -66,6 +66,33 @@ public sealed class MiabiManifestGeneratorTests
     }
 
     [Fact]
+    public async Task MapsExternalAspireEndpointToMiabiExternalAccess()
+    {
+        var builder = DistributedApplication.CreateBuilder(
+            new DistributedApplicationOptions
+            {
+                Args = []
+            });
+        builder.AddContainer("web", "nginx", "alpine")
+            .WithHttpEndpoint(targetPort: 80, name: "http")
+            .WithExternalHttpEndpoints();
+
+        using var app = builder.Build();
+        var model = app.Services.GetRequiredService<DistributedApplicationModel>();
+        var yaml = await new MiabiManifestGenerator().GenerateAsync(
+            model,
+            new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish),
+            app.Services,
+            NullLogger.Instance,
+            CancellationToken.None);
+
+        Assert.Contains("externalLabel: web", yaml);
+        Assert.Contains("externalAccess: true", yaml);
+        Assert.DoesNotContain("kind: Domain", yaml);
+        Assert.DoesNotContain("kind: Route", yaml);
+    }
+
+    [Fact]
     public async Task GeneratesApplicationDomainRouteAndSecretReference()
     {
         var builder = DistributedApplication.CreateBuilder(

@@ -45,6 +45,9 @@ internal sealed class MiabiApplicationSpec
 
     [YamlMember(Alias = "mounts", Order = 5, DefaultValuesHandling = DefaultValuesHandling.OmitEmptyCollections)]
     public List<MiabiMountSpec> Mounts { get; init; } = [];
+
+    [YamlMember(Alias = "externalLabel", Order = 6, DefaultValuesHandling = DefaultValuesHandling.OmitNull)]
+    public string? ExternalLabel { get; set; }
 }
 
 internal sealed class MiabiPortSpec
@@ -57,6 +60,9 @@ internal sealed class MiabiPortSpec
 
     [YamlMember(Alias = "scheme")]
     public string Scheme { get; init; } = "http";
+
+    [YamlMember(Alias = "externalAccess", DefaultValuesHandling = DefaultValuesHandling.OmitDefaults)]
+    public bool ExternalAccess { get; init; }
 
     [YamlMember(Alias = "publish", DefaultValuesHandling = DefaultValuesHandling.OmitDefaults)]
     public bool Publish { get; init; }

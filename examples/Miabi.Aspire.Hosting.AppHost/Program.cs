@@ -5,9 +5,7 @@ var registry = builder.AddContainerRegistry("local-registry", "localhost:5000");
 
 builder.AddProject<Projects.Miabi_Aspire_Hosting_Blazor>("blazor")
     .WithContainerRegistry(registry)
-    .WithMiabiDomain(
-        builder.Configuration["Miabi:AppDomain"] ?? "blazor.localhost",
-        tls: builder.Configuration["Miabi:RouteTls"] ?? "off");
+    .WithExternalHttpEndpoints();
 
 builder.AddMiabiEnvironment(
     "production",

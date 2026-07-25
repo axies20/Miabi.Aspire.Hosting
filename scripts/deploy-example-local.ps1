@@ -7,8 +7,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $cli = Join-Path $root 'tools\miabi\miabi.exe'
 $appHost = Join-Path $root 'examples\Miabi.Aspire.Hosting.AppHost\Miabi.Aspire.Hosting.AppHost.csproj'
-$localCompose = Join-Path $root 'infra\miabi-local\compose.yaml'
 $tokenParameter = 'Parameters__miabi-token'
+$applicationUrl = 'http://blazor.apps.localhost/'
 
 if (-not (Test-Path -LiteralPath $cli)) {
     & (Join-Path $PSScriptRoot 'install-miabi-cli.ps1')
@@ -41,43 +41,14 @@ try {
         throw 'aspire deploy failed.'
     }
 
-    $headers = @{ Authorization = "Bearer $token" }
-    $domains = Invoke-RestMethod `
-        -Uri "$($env:Miabi__Server)/api/v1/workspaces/$Workspace/domains" `
-        -Headers $headers
-    $localDomain = @($domains.data) |
-        Where-Object { $_.name -eq 'blazor.localhost' } |
-        Select-Object -First 1
-    if (-not $localDomain) {
-        throw "Miabi domain 'blazor.localhost' was not found after deployment."
-    }
-    if (-not $localDomain.verified) {
-        Invoke-RestMethod `
-            -Method Post `
-            -Uri "$($env:Miabi__Server)/api/v1/admin/domains/$($localDomain.id)/force-verify" `
-            -Headers $headers | Out-Null
-        Write-Host "Force-verified local development domain 'blazor.localhost'."
-    }
-
-    Invoke-RestMethod `
-        -Method Post `
-        -Uri "$($env:Miabi__Server)/api/v1/admin/routes/resync" `
-        -Headers $headers | Out-Null
-    Write-Host 'Resynchronized Miabi gateway routes.'
-
-    docker compose -f $localCompose restart gateway
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Failed to restart the local Miabi gateway.'
-    }
-
     $routeReady = $false
     for ($attempt = 1; $attempt -le 10; $attempt++) {
         try {
             $response = Invoke-WebRequest `
-                -Uri 'http://blazor.localhost/' `
+                -Uri $applicationUrl `
                 -TimeoutSec 5 `
                 -SkipHttpErrorCheck
-            if ($response.StatusCode -ne 404) {
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) {
                 $routeReady = $true
                 break
             }
@@ -88,9 +59,9 @@ try {
         Start-Sleep -Seconds 1
     }
     if (-not $routeReady) {
-        throw "Miabi deployment completed, but 'http://blazor.localhost/' is still not routed."
+        throw "Miabi deployment completed, but '$applicationUrl' is still not routed."
     }
-    Write-Host "Application is available at http://blazor.localhost/"
+    Write-Host "Application is available at $applicationUrl"
 }
 finally {
     Remove-Item Env:\MIABI_TOKEN -ErrorAction SilentlyContinue
