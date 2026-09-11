@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Pipelines;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -47,7 +48,7 @@ public sealed class MiabiManifestGeneratorTests
                 Args = []
             });
 #pragma warning disable ASPIRECOMPUTE003
-        var registry = builder.AddContainerRegistry("registry", "localhost:5000");
+        var registry = builder.AddContainerRegistry("explicit-registry", "registry.example.com", "production");
         builder.AddResource(new ProjectResource("web"))
             .WithContainerRegistry(registry);
 #pragma warning restore ASPIRECOMPUTE003
@@ -61,7 +62,7 @@ public sealed class MiabiManifestGeneratorTests
             NullLogger.Instance,
             CancellationToken.None);
 
-        Assert.Contains("image: localhost:5000/web", yaml);
+        Assert.Contains("image: registry.example.com/production/web", yaml);
         Assert.Contains("tag: latest", yaml);
     }
 

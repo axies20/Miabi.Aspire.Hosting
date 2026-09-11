@@ -89,6 +89,78 @@ public static class MiabiHostingExtensions
     }
 
     /// <summary>
+    /// Configures a PEM CA bundle used by Miabi CLI to validate the remote
+    /// control-plane certificate. The file must exist on the deployment machine.
+    /// </summary>
+    [AspireExport]
+    public static IResourceBuilder<MiabiEnvironmentResource> WithMiabiCertificateAuthority(
+        this IResourceBuilder<MiabiEnvironmentResource> builder,
+        string path)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var current = GetTlsOptions(builder.Resource);
+        return builder.WithAnnotation(
+            current with { CertificateAuthority = path },
+            ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Disables TLS certificate verification for Miabi CLI calls. Intended only
+    /// for development or homelab environments; prefer a custom CA bundle.
+    /// </summary>
+    [AspireExport]
+    public static IResourceBuilder<MiabiEnvironmentResource> WithMiabiInsecureSkipTlsVerify(
+        this IResourceBuilder<MiabiEnvironmentResource> builder,
+        bool enabled = true)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        var current = GetTlsOptions(builder.Resource);
+        return builder.WithAnnotation(
+            current with { InsecureSkipVerify = enabled },
+            ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Configures Miabi's built-in registry as the Aspire image push target.
+    /// Aspire authenticates its selected Docker or Podman runtime with the
+    /// workspace name and API token before pushing application images.
+    /// </summary>
+    [AspireExport]
+    public static IResourceBuilder<MiabiEnvironmentResource> WithMiabiContainerRegistry(
+        this IResourceBuilder<MiabiEnvironmentResource> builder,
+        string endpoint,
+        string? repository = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+
+        endpoint = endpoint.Trim().TrimEnd('/');
+        if (endpoint.Contains("://", StringComparison.Ordinal) ||
+            endpoint.Contains('/', StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The registry endpoint must be a hostname with an optional port and no URL scheme or path.",
+                nameof(endpoint));
+        }
+
+        repository = string.IsNullOrWhiteSpace(repository)
+            ? builder.Resource.Workspace
+            : repository.Trim().Trim('/');
+        var registry = builder.ApplicationBuilder.AddContainerRegistry(
+            $"{builder.Resource.Name}-registry",
+            endpoint,
+            repository);
+
+        builder.WithAnnotation(
+            new MiabiRegistryAnnotation(endpoint, repository),
+            ResourceAnnotationMutationBehavior.Replace);
+        return builder;
+    }
+
+    /// <summary>
     /// Exposes a compute resource through a Miabi route.
     /// Use <c>tls: "off"</c> for an HTTP-only local domain.
     /// </summary>
@@ -136,4 +208,8 @@ public static class MiabiHostingExtensions
         return builder.WithAnnotation(
             new MiabiSecretAnnotation(environmentVariable, secretName, parameter.Resource));
     }
+
+    private static MiabiTlsAnnotation GetTlsOptions(MiabiEnvironmentResource resource) =>
+        resource.Annotations.OfType<MiabiTlsAnnotation>().LastOrDefault()
+        ?? new MiabiTlsAnnotation(null, false);
 }

@@ -1,4 +1,5 @@
 using Aspire.Hosting.Pipelines;
+using Aspire.Hosting.Publishing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -8,6 +9,33 @@ internal static class MiabiPipelineSteps
 {
     public static IEnumerable<PipelineStep> Create(MiabiEnvironmentResource environment)
     {
+        var steps = new List<PipelineStep>();
+        var registry = environment.Annotations.OfType<MiabiRegistryAnnotation>().LastOrDefault();
+        if (registry is not null)
+        {
+            var registryLogin = new PipelineStep
+            {
+                Name = $"miabi-registry-login-{environment.Name}",
+                Description = $"Authenticates the container runtime to '{registry.Endpoint}'",
+                Resource = environment,
+                Action = async context =>
+                {
+                    var token = await GetTokenAsync(environment, context.CancellationToken);
+                    var runtimeResolver = context.Services.GetRequiredService<IContainerRuntimeResolver>();
+                    var runtime = await runtimeResolver.ResolveAsync(context.CancellationToken);
+                    await runtime.LoginToRegistryAsync(
+                        registry.Endpoint,
+                        environment.Workspace,
+                        token,
+                        context.CancellationToken);
+                }
+            };
+            registryLogin.DependsOn(WellKnownPipelineSteps.ProcessParameters);
+            registryLogin.DependsOn(WellKnownPipelineSteps.CheckContainerRuntime);
+            registryLogin.RequiredBy(WellKnownPipelineSteps.PushPrereq);
+            steps.Add(registryLogin);
+        }
+
         var publish = new PipelineStep
         {
             Name = $"miabi-publish-{environment.Name}",
@@ -33,6 +61,7 @@ internal static class MiabiPipelineSteps
         };
         publish.DependsOn(WellKnownPipelineSteps.Build);
         publish.RequiredBy(WellKnownPipelineSteps.Publish);
+        steps.Add(publish);
 
         var preflight = new PipelineStep
         {
@@ -48,6 +77,7 @@ internal static class MiabiPipelineSteps
             }
         };
         preflight.DependsOn(WellKnownPipelineSteps.DeployPrereq);
+        steps.Add(preflight);
 
         var deploy = new PipelineStep
         {
@@ -84,6 +114,7 @@ internal static class MiabiPipelineSteps
         deploy.DependsOn(publish);
         deploy.DependsOn(WellKnownPipelineSteps.Push);
         deploy.RequiredBy(WellKnownPipelineSteps.Deploy);
+        steps.Add(deploy);
 
         var destroy = new PipelineStep
         {
@@ -111,8 +142,9 @@ internal static class MiabiPipelineSteps
         };
         destroy.DependsOn(WellKnownPipelineSteps.DestroyPrereq);
         destroy.RequiredBy(WellKnownPipelineSteps.Destroy);
+        steps.Add(destroy);
 
-        return [publish, preflight, deploy, destroy];
+        return steps;
     }
 
     private static MiabiDeploymentOptionsAnnotation GetOptions(MiabiEnvironmentResource environment) =>

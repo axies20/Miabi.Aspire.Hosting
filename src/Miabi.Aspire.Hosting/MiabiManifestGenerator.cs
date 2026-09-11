@@ -24,12 +24,20 @@ internal sealed class MiabiManifestGenerator
         CancellationToken cancellationToken)
     {
         var manifests = new List<MiabiManifest>();
+        var registries = model.Resources.OfType<IContainerRegistry>().ToArray();
+        var defaultRegistry = registries.Length == 1 ? registries[0] : null;
 
         foreach (var resource in model.Resources
                      .Where(static resource => resource is IComputeResource)
                      .OrderBy(static resource => resource.Name, StringComparer.Ordinal))
         {
-            var image = await GetImageAsync(resource, executionContext, services, logger, cancellationToken);
+            var image = await GetImageAsync(
+                resource,
+                defaultRegistry,
+                executionContext,
+                services,
+                logger,
+                cancellationToken);
             if (image is null)
             {
                 throw new InvalidOperationException(
@@ -176,15 +184,23 @@ internal sealed class MiabiManifestGenerator
 
     private static async Task<string?> GetImageAsync(
         IResource resource,
+        IContainerRegistry? defaultRegistry,
         DistributedApplicationExecutionContext executionContext,
         IServiceProvider services,
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var registryReference = resource.Annotations
-            .OfType<ContainerRegistryReferenceAnnotation>()
-            .LastOrDefault();
-        if (registryReference is not null)
+        var targetRegistry = resource.Annotations
+                                 .OfType<ContainerRegistryReferenceAnnotation>()
+                                 .LastOrDefault()?.Registry
+                             ?? resource.Annotations
+                                 .OfType<DeploymentTargetAnnotation>()
+                                 .LastOrDefault()?.ContainerRegistry
+                             ?? resource.Annotations
+                                 .OfType<RegistryTargetAnnotation>()
+                                 .LastOrDefault()?.Registry
+                             ?? defaultRegistry;
+        if (targetRegistry is not null)
         {
             var pushOptions = new ContainerImagePushOptions
             {
@@ -203,7 +219,7 @@ internal sealed class MiabiManifestGenerator
             }
 
             return await pushOptions.GetFullRemoteImageNameAsync(
-                registryReference.Registry,
+                targetRegistry,
                 cancellationToken);
         }
 

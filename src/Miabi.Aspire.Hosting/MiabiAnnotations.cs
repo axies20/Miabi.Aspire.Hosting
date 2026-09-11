@@ -12,5 +12,9 @@ internal sealed record MiabiSecretAnnotation(
 
 internal sealed record MiabiDeploymentOptionsAnnotation(bool Prune, TimeSpan Timeout)
     : IResourceAnnotation;
+
+internal sealed record MiabiRegistryAnnotation(string Endpoint, string Repository)
+    : IResourceAnnotation;
+
 internal sealed record MiabiTlsAnnotation(string? CertificateAuthority, bool InsecureSkipVerify)
     : IResourceAnnotation;
