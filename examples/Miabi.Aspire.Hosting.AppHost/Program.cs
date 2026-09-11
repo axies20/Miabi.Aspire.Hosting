@@ -1,16 +1,32 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var miabiToken = builder.AddParameter("miabi-token", secret: true);
-var registry = builder.AddContainerRegistry("local-registry", "localhost:5000");
-
+var miabiToken = builder.AddParameter("miabiToken", secret: true);
+var miabiServer = builder.Configuration["Miabi:Server"]
+                  ?? throw new InvalidOperationException("Miabi:Server is required.");
+var miabiWorkspace = builder.Configuration["Miabi:Workspace"]
+                     ?? throw new InvalidOperationException("Miabi:Workspace is required.");
+var registryServer = builder.Configuration["Miabi:Registry"]
+                     ?? throw new InvalidOperationException("Miabi:Registry is required.");
 builder.AddProject<Projects.Miabi_Aspire_Hosting_Blazor>("blazor")
-    .WithContainerRegistry(registry)
     .WithExternalHttpEndpoints();
 
-builder.AddMiabiEnvironment(
+var miabi = builder.AddMiabiEnvironment(
     "production",
-    builder.Configuration["Miabi:Server"] ?? "http://localhost:9000",
-    builder.Configuration["Miabi:Workspace"] ?? "local",
-    miabiToken);
+    miabiServer,
+    miabiWorkspace,
+    miabiToken)
+    .WithMiabiContainerRegistry(registryServer);
+
+if (builder.Configuration["Miabi:CertificateAuthority"] is { Length: > 0 } certificateAuthority)
+{
+    miabi.WithMiabiCertificateAuthority(certificateAuthority);
+}
+
+if (bool.TryParse(
+        builder.Configuration["Miabi:InsecureSkipTlsVerify"],
+        out var insecureSkipTlsVerify) && insecureSkipTlsVerify)
+{
+    miabi.WithMiabiInsecureSkipTlsVerify();
+}
 
 builder.Build().Run();

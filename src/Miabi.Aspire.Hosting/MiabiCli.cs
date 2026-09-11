@@ -30,6 +30,15 @@ internal sealed class MiabiCli(ILogger logger)
                 ["MIABI_TOKEN"] = token
             }
         };
+        var tls = environment.Annotations.OfType<MiabiTlsAnnotation>().LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(tls?.CertificateAuthority))
+        {
+            startInfo.Environment["MIABI_CA"] = tls.CertificateAuthority;
+        }
+        if (tls?.InsecureSkipVerify is true)
+        {
+            startInfo.Environment["MIABI_INSECURE_SKIP_TLS_VERIFY"] = "true";
+        }
         startInfo.ArgumentList.Add("--workspace");
         startInfo.ArgumentList.Add(environment.Workspace);
         foreach (var argument in arguments)
@@ -49,7 +58,7 @@ internal sealed class MiabiCli(ILogger logger)
         catch (System.ComponentModel.Win32Exception exception)
         {
             throw new InvalidOperationException(
-                "Miabi CLI was not found. Install it from https://github.com/miabi-io/miabi-cli.", exception);
+                "Miabi CLI was not found. Install it from https://github.com/miabi-io/cli.", exception);
         }
 
         if (standardInput is not null)

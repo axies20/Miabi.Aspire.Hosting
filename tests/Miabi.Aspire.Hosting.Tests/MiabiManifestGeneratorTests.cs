@@ -66,6 +66,53 @@ public sealed class MiabiManifestGeneratorTests
     }
 
     [Fact]
+    public void AddsRegistryLoginBeforeAspirePushPrerequisite()
+    {
+        var token = new ParameterResource("miabi-token", _ => "secret", true);
+        var environment = new MiabiEnvironmentResource(
+            "production",
+            "https://miabi.example.com",
+            "production",
+            token);
+        environment.Annotations.Add(new MiabiRegistryAnnotation(
+            "registry.example.com",
+            "production"));
+
+        var step = Assert.Single(
+            MiabiPipelineSteps.Create(environment),
+            candidate => candidate.Name == "miabi-registry-login-production");
+
+#pragma warning disable ASPIREPIPELINES001
+        Assert.Contains(WellKnownPipelineSteps.ProcessParameters, step.DependsOnSteps);
+        Assert.Contains(WellKnownPipelineSteps.CheckContainerRuntime, step.DependsOnSteps);
+        Assert.Contains(WellKnownPipelineSteps.PushPrereq, step.RequiredBySteps);
+#pragma warning restore ASPIREPIPELINES001
+    }
+
+    [Fact]
+    public void ConfiguresMiabiCliTlsOptionsWithoutLosingPreviousSetting()
+    {
+        var builder = DistributedApplication.CreateBuilder(
+            new DistributedApplicationOptions
+            {
+                Args = []
+            });
+        var token = builder.AddParameter("miabi-token", secret: true);
+        var environment = builder.AddMiabiEnvironment(
+                "production",
+                "https://miabi.example.com",
+                "production",
+                token)
+            .WithMiabiCertificateAuthority("/etc/ssl/miabi-ca.pem")
+            .WithMiabiInsecureSkipTlsVerify();
+
+        var options = Assert.Single(environment.Resource.Annotations.OfType<MiabiTlsAnnotation>());
+
+        Assert.Equal("/etc/ssl/miabi-ca.pem", options.CertificateAuthority);
+        Assert.True(options.InsecureSkipVerify);
+    }
+
+    [Fact]
     public async Task MapsExternalAspireEndpointToMiabiExternalAccess()
     {
         var builder = DistributedApplication.CreateBuilder(
