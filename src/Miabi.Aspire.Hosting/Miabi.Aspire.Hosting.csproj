@@ -8,7 +8,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>
     <EnableAspireIntegrationAnalyzers>true</EnableAspireIntegrationAnalyzers>
-    <NoWarn>$(NoWarn);ASPIREPIPELINES001;ASPIREPIPELINES003;ASPIREPIPELINES004;CS0618</NoWarn>
+    <NoWarn>$(NoWarn);ASPIRECOMPUTE003;ASPIRECONTAINERRUNTIME001;ASPIREPIPELINES001;ASPIREPIPELINES003;ASPIREPIPELINES004;CS0618</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting" />
