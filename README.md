@@ -1,146 +1,131 @@
 # Miabi hosting integration for Aspire
 
-This experimental integration turns the Aspire application model into Miabi
-declarative resources and adds `publish`, `deploy`, and `destroy` steps to the
-Aspire CLI.
+This integration publishes an Aspire application model as `miabi.io/v1`
+manifests and deploys it to an existing remote Miabi workspace. It does not run
+or install Miabi locally.
 
-It targets an existing Miabi workspace. It does not install Miabi on a remote
-server, configure DNS, or provision a container registry.
-
-## Blazor example
-
-The included example models Blazor as an Aspire project. The application does
-not need a Dockerfile, `PublishAsDockerFile()`, a fixed host port, or Miabi-only
-environment variables:
+## AppHost configuration
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
 
-var miabiToken = builder.AddParameter("miabi-token", secret: true);
-var registry = builder.AddContainerRegistry("local-registry", "localhost:5000");
-
-builder.AddProject<Projects.Miabi_Aspire_Hosting_Blazor>("blazor")
-    .WithContainerRegistry(registry)
+var miabiToken = builder.AddParameter("miabiToken", secret: true);
+var miabiServer = builder.Configuration["Miabi:Server"]
+                  ?? throw new InvalidOperationException("Miabi:Server is required.");
+var miabiWorkspace = builder.Configuration["Miabi:Workspace"]
+                     ?? throw new InvalidOperationException("Miabi:Workspace is required.");
+var registryServer = builder.Configuration["Miabi:Registry"]
+                     ?? throw new InvalidOperationException("Miabi:Registry is required.");
+builder.AddProject<Projects.MyApplication>("app")
     .WithExternalHttpEndpoints();
 
-builder.AddMiabiEnvironment(
+var miabi = builder.AddMiabiEnvironment(
     "production",
-    builder.Configuration["Miabi:Server"] ?? "http://localhost:9000",
-    builder.Configuration["Miabi:Workspace"] ?? "local",
-    miabiToken);
+    miabiServer,
+    miabiWorkspace,
+    miabiToken)
+    .WithMiabiContainerRegistry(registryServer);
+
+if (builder.Configuration["Miabi:CertificateAuthority"] is { Length: > 0 } ca)
+{
+    miabi.WithMiabiCertificateAuthority(ca);
+}
+
+// Development/homelab escape hatch only:
+if (bool.TryParse(
+        builder.Configuration["Miabi:InsecureSkipTlsVerify"],
+        out var insecureSkipTlsVerify) && insecureSkipTlsVerify)
+{
+    miabi.WithMiabiInsecureSkipTlsVerify();
+}
 
 builder.Build().Run();
 ```
 
-Aspire supplies the project image and endpoint metadata during publish. The
-Miabi target converts it to an Application whose external HTTP port uses
-Miabi's generated External Access route. The application resource name is used
-as the stable external label.
+## Required settings
 
-The local stack configures `MIABI_EXTERNAL_BASE_DOMAIN=apps.localhost`, so the
-example is exposed as `blazor.apps.localhost` without creating or manually
-verifying a Domain resource. For a custom hostname, use `WithMiabiDomain`
-instead and follow Miabi's normal domain verification flow.
+Set these values in the environment that runs the Aspire CLI:
 
-## Try it locally
-
-Requirements:
-
-- Docker Desktop with Linux containers;
-- .NET SDK and the Aspire CLI;
-- ports `80`, `5000`, and `9000` available.
-
-Start the local Miabi control plane and Goma gateway:
-
-```powershell
-.\scripts\start-miabi-local.ps1 -Pull
+```shell
+export MIABI__SERVER="https://miabi.example.com"
+export MIABI__WORKSPACE="production"
+export MIABI__REGISTRY="registry.example.com"
+export PARAMETERS__MIABITOKEN="mb_your_workspace_api_token"
 ```
 
-Open `http://localhost:9000` and sign in:
+- `MIABI__SERVER` is the public URL of the remote Miabi control plane.
+- `MIABI__WORKSPACE` is the target workspace name or handle.
+- `MIABI__REGISTRY` is a registry reachable by both the deployment machine and
+  the remote Miabi node. For Miabi's built-in registry this is normally the
+  configured registry hostname.
+- `PARAMETERS__MIABITOKEN` is a secret workspace API token with permissions to
+  inspect the workspace, manage Vault secrets, and apply/delete resources.
+- `MIABI__CERTIFICATEAUTHORITY` is optional in the example AppHost and points to
+  a PEM CA bundle on the deployment machine. It is forwarded to Miabi CLI as
+  `MIABI_CA`.
+- `MIABI__INSECURESKIPTLSVERIFY=true` is optional in the example AppHost and
+  disables Miabi CLI certificate verification. Use it only for development;
+  prefer `MIABI__CERTIFICATEAUTHORITY`.
+- `MIABI_CLI_PATH` is optional and points to the `miabi` executable when it is
+  not available on `PATH`.
 
-```text
-admin@example.com
-MiabiLocal2026!
-```
+The integration registers Miabi's registry as Aspire's default image target and
+authenticates the selected Docker or Podman runtime automatically before the
+standard Aspire push step. The token is passed through the runtime API rather
+than as a command-line argument.
 
-Create a workspace named `local`, create an API token in that workspace, then
+The token must be bound to the target workspace, whose role must be Developer
+or higher. For this complete workflow, grant `read`, `write`, and `deploy`
+scopes (or `*`). Miabi also accepts `deploy` for a built-in registry push. A
+registry-only token cannot run `whoami`, upload Vault secrets, or apply
+manifests.
+
+## Publish and deploy
+
+Install the current [Miabi CLI](https://github.com/miabi-io/cli/releases), then
 run:
 
-```powershell
-.\scripts\deploy-example-local.ps1
+```shell
+aspire publish --project examples/Miabi.Aspire.Hosting.AppHost/Miabi.Aspire.Hosting.AppHost.csproj --non-interactive
+aspire deploy --project examples/Miabi.Aspire.Hosting.AppHost/Miabi.Aspire.Hosting.AppHost.csproj --non-interactive
 ```
 
-The script installs the checksum-verified Miabi CLI into `tools/miabi`, asks for
-the token without saving it, and runs `aspire deploy`.
+Deployment performs the following operations:
 
-After deployment, open:
+1. The integration authenticates Aspire's Docker or Podman runtime to the Miabi
+   registry using the workspace name and API token.
+2. Aspire builds and pushes application images to
+   `MIABI__REGISTRY/MIABI__WORKSPACE`.
+3. The integration verifies the remote token with `miabi whoami`.
+4. Secret parameters mapped with `WithMiabiSecret` are uploaded to Miabi Vault.
+5. Miabi validates the generated manifest using `apply --dry-run` and then
+   applies it to `MIABI__WORKSPACE`.
 
-```text
-http://blazor.apps.localhost
-```
-
-Names under `.localhost` resolve to the local machine in modern browsers, so a
-hosts-file entry is normally unnecessary. This route is generated by Miabi's
-External Access feature from the configured `apps.localhost` base domain and
-does not require domain verification.
-
-Stop the stack without deleting its database:
-
-```powershell
-.\scripts\stop-miabi-local.ps1
-```
-
-## Publish, deploy, and destroy
-
-Generate an inspectable `miabi.yaml` without changing Miabi:
+To delete only resources described by the generated deployment manifest:
 
 ```shell
-aspire publish
+aspire destroy --project examples/Miabi.Aspire.Hosting.AppHost/Miabi.Aspire.Hosting.AppHost.csproj --non-interactive
 ```
-
-Build the project image, run Miabi's dry-run preflight, upload referenced
-secrets, and apply the manifest:
-
-```shell
-aspire deploy
-```
-
-Delete only resources recorded by this deployment:
-
-```shell
-aspire destroy
-```
-
-The local example runs a registry on `localhost:5000`. Aspire pushes the project
-image there before Miabi applies the manifest, and Miabi pulls the same image
-through the shared Docker daemon. A remote Miabi server needs a registry that is
-reachable from its deployment nodes; CI must publish images there before
-applying or committing the generated manifest.
-
-Miabi GitOps reconciles declarative manifests from Git; it does not build or
-push application images by itself.
 
 ## Supported mapping
 
 - container and containerizable project resources to Miabi Applications;
-- Aspire endpoint target ports to Miabi ports;
-- external Aspire HTTP endpoints to Miabi generated External Access routes;
-- named volumes to Miabi Volumes;
+- endpoint target ports and external HTTP endpoints;
+- named volumes;
 - literal environment variables;
-- secret parameters to Miabi Vault references;
-- explicit `WithMiabiDomain` annotations to Domain and Route resources.
+- secret parameters through Miabi Vault;
+- custom domains and routes through `WithMiabiDomain`.
 
-Secrets are supplied to the Miabi CLI through stdin or its process environment.
-Their values are not written to `miabi.yaml`, command arguments, logs, or
-deployment state.
+`WithPrune()` remains opt-in because the remote workspace may contain resources
+that are not managed by this Aspire application.
 
 ## Current limitations
 
-- Miabi and the target workspace must already exist.
-- Registry push and Git commit/pull-request automation are not implemented.
+- Miabi, the workspace, DNS, and the target registry must already exist.
+- The selected Docker or Podman runtime must be installed and running on the
+  deployment machine.
 - Managed database and cache resources are not translated yet.
-- General Aspire service references are rejected when they cannot be translated
-  safely to deterministic Miabi addresses.
+- General Aspire service references are rejected when they cannot be converted
+  to deterministic remote addresses.
 - Only named Docker volumes are supported; bind mounts are rejected.
 - Non-project endpoints need an explicit target port.
-- `WithPrune()` is opt-in because a workspace may contain unrelated resources.
